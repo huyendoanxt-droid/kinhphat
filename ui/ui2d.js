@@ -32,6 +32,7 @@ function closeReader() { reader?.remove(); reader = null; }
 function page(c, ...nodes) { closeReader(); setCrumbs(c); main.replaceChildren(...nodes); window.scrollTo(0, 0); }
 
 export const UI = {
+  closeReader,
   init(a) {
     app = a;
     musBtn = h('button', { textContent: '♪', title: 'Nhạc đệm', onclick: () => { if (!app.music.toggle()) alert('Chưa có nhạc. Bỏ mp3 vào thư mục music/ và khai báo trong music/list.json'); } });
