@@ -2,7 +2,7 @@
 let voice = null, token = 0, warned = false;
 const pick = () => { voice = speechSynthesis.getVoices().find(v => /^vi/i.test(v.lang)) || null; };
 speechSynthesis.onvoiceschanged = pick; pick();
-const ra = new Audio(); ra.referrerPolicy = 'no-referrer';
+const ra = new Audio();
 const split = t => {                      // đoạn <= 180 ký tự (giới hạn ~200 của endpoint Google)
   const parts = t.match(/[^.!?;:]+[.!?;:]*\s*/g) || [t], out = []; let cur = '';
   const push = s => { s = s.trim(); if (s) out.push(s); };
@@ -12,7 +12,7 @@ const split = t => {                      // đoạn <= 180 ký tự (giới h�
   }); push(cur); return out;
 };
 export const tts = {
-  paras: [], idx: 0, rate: 1, state: 'stop', onPara() {}, onState() {},
+  paras: [], idx: 0, rate: 1, gap: 0, state: 'stop', onPara() {}, onState() {},
   hasVoice: () => true,
   get mode() { return voice ? 'Giọng trình duyệt' : 'Giọng Google Dịch'; },
   load(p) { this.stop(); this.paras = p; },
@@ -30,16 +30,16 @@ export const tts = {
       const cs = split(this.paras[this.idx]);
       const run = k => {
         if (my !== token) return;
-        if (k >= cs.length) { this.idx++; return next(); }
+        if (k >= cs.length) { this.idx++; return this.gap ? setTimeout(next, this.gap) : next(); }
         if (voice) {
           const u = new SpeechSynthesisUtterance(cs[k]);
           u.lang = 'vi-VN'; u.voice = voice; u.rate = this.rate;
           u.onend = () => run(k + 1); u.onerror = e => { if (e.error !== 'canceled' && e.error !== 'interrupted') run(k + 1); };
           speechSynthesis.speak(u);
         } else {
-          ra.onended = () => run(k + 1); ra.onerror = () => this._fail(my);
-          ra.src = 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=vi&q=' + encodeURIComponent(cs[k]);
-          ra.defaultPlaybackRate = ra.playbackRate = this.rate; ra.play().catch(() => this._fail(my));
+          ra.onended = () => run(k + 1); ra.onerror = () => { console.warn('Google TTS lỗi', ra.error?.code, ra.error?.message, ra.src); this._fail(my); };
+          ra.src = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(cs[k])}&tl=vi&client=tw-ob`;
+          ra.defaultPlaybackRate = ra.playbackRate = this.rate; ra.play().catch(e => { console.warn('Google TTS play() lỗi', e); this._fail(my); });
         }
       };
       run(0);
