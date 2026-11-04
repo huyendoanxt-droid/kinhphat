@@ -112,7 +112,7 @@ function hover(m, e) {
   tip.style.display = m ? 'block' : 'none'; renderer.domElement.style.cursor = m ? 'pointer' : 'grab';
   if (m) { tip.textContent = m.userData.book.title; tip.style.left = e.clientX + 14 + 'px'; tip.style.top = e.clientY + 14 + 'px'; }
 }
-const key = (e, v) => { if (v && e.key.toLowerCase() === 'e' && Dharma.active) return Dharma.toggleSit(); const k = { w: 'w', a: 'a', s: 's', d: 'd', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'a', ArrowRight: 'd' }[e.key.length > 1 ? e.key : e.key.toLowerCase()]; if (k && running) keys[k] = v; };
+const key = (e, v) => { if (v && e.key.toLowerCase() === 'e' && Dharma.active) return Dharma.toggleSit(); const k = { w: 'w', a: 'a', s: 's', d: 'd', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'a', ArrowRight: 'd' }[e.key.length > 1 ? e.key : e.key.toLowerCase()]; if (k && (running || Dharma.active)) keys[k] = v; };
 
 function initScene() {
   renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
