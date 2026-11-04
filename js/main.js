@@ -1,5 +1,5 @@
 // Điều phối: dữ liệu + TTS + nhạc. Giao diện nằm ở ui/. Muốn bản 3D: đổi dòng import UI bên dưới.
-import { UI } from '../ui/ui2d.js';          // <- đổi thành '../ui/ui3d.js'
+import { UI } from '../ui/ui3d.js';          // <- đổi lại '../ui/ui2d.js' nếu muốn bản 2D
 import { ORIGIN, fetchDoc, parseHome, parsePage } from './data.js';
 import { tts } from './tts.js';
 import { music } from './music.js';
