@@ -61,7 +61,6 @@ export const UI = {
     playBtn = h('button', { textContent: '▶ Đọc', onclick: () => {
       const t = app.tts;
       if (t.state === 'playing') t.pause(); else if (t.state === 'paused') t.resume(); else {
-        if (!t.hasVoice() && !confirm('Máy chưa có giọng tiếng Việt, có thể đọc sai. Vẫn tiếp tục?')) return;
         t.play(Math.max(0, paraEls.findIndex(p => p.classList.contains('on'))));
       }
     } });

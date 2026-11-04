@@ -3,10 +3,11 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.m
 import { UI as U2 } from './ui2d.js';
 
 const COLORS = ['#8b2e2e', '#2e5a8b', '#2e7a4f', '#7a4f2e', '#6a2e8b', '#8b6a2e', '#2e7a7a', '#5a2e3d', '#3d5a2e', '#4a4a7a'];
+const FONT = '"Noto Serif","Times New Roman",serif';
 const hash = s => [...s].reduce((a, c) => a + c.charCodeAt(0), 0);
 const h = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
 const M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: .8, ...o });
-const BOOK_GEO = new THREE.BoxGeometry(.07, 1, .26), SHARED = new Set([BOOK_GEO]);
+const BOOK_GEO = new THREE.BoxGeometry(.9, .11, .32), SHARED = new Set([BOOK_GEO]);
 
 let app, renderer, scene, camera, world, running = false, bookMeshes = [], hoverM = null;
 let yaw = 0, pitch = 0, L = 14, keys = {}, tip, ov, crumbsEl, musBtn, musName, last = 0, drag = null;
@@ -16,30 +17,29 @@ const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
 function labelTex(text, w, hgt, font, fg, bg) {
   const c = document.createElement('canvas'); c.width = w; c.height = hgt; const x = c.getContext('2d');
   x.fillStyle = bg; x.fillRect(0, 0, w, hgt); x.fillStyle = fg; x.textAlign = 'center'; x.textBaseline = 'middle';
-  let size = font; do { x.font = `bold ${size}px Georgia`; size -= 2; } while (x.measureText(text).width > w - 24 && size > 12);
+  let size = font; do { x.font = `bold ${size}px ${FONT}`; size -= 2; } while (x.measureText(text).width > w - 24 && size > 12);
   x.fillText(text, w / 2, hgt / 2); return new THREE.CanvasTexture(c);
 }
 function spineTex(title, col) {
-  const c = document.createElement('canvas'); c.width = 48; c.height = 256; const x = c.getContext('2d');
-  x.fillStyle = col; x.fillRect(0, 0, 48, 256); x.fillStyle = '#e0b85a'; x.fillRect(0, 10, 48, 3); x.fillRect(0, 243, 48, 3);
-  x.translate(24, 128); x.rotate(-Math.PI / 2); x.fillStyle = '#fff4d6'; x.font = 'bold 20px Georgia'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  let t = title; while (x.measureText(t).width > 205 && t.length > 3) t = t.slice(0, -2);
-  x.fillText(t === title ? t : t.trimEnd() + '…', 0, 0); const tx = new THREE.CanvasTexture(c); tx.anisotropy = 4; return tx;
+  const c = document.createElement('canvas'); c.width = 640; c.height = 80; const x = c.getContext('2d');
+  x.fillStyle = col; x.fillRect(0, 0, 640, 80); x.fillStyle = '#e0b85a'; x.fillRect(0, 5, 640, 3); x.fillRect(0, 72, 640, 3);
+  x.fillStyle = '#fff4d6'; x.font = `bold 38px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+  let t = title; while (x.measureText(t).width > 600 && t.length > 3) t = t.slice(0, -2);
+  x.fillText(t === title ? t : t.trimEnd() + '…', 320, 41); const tx = new THREE.CanvasTexture(c); tx.anisotropy = 8; return tx;
 }
+// Mỗi tủ: 3 tầng x 2 chồng x 3 cuốn = 18 cuốn, sách nằm ngang, gáy quay ra ngoài
 function bookcase(title, books) {
-  const g = new THREE.Group(), W = 1.9, per = 24, T = Math.max(2, Math.min(14, Math.ceil(books.length / per)));
-  const wood = M(0x5a3820), H = T * .42 + .2;
+  const g = new THREE.Group(), W = 2.1, T = 3, TH = .5, H = T * TH + .2, wood = M(0x7a5230);
   const add = (w, hh, d, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), wood); m.position.set(x, y, z); g.add(m); };
-  add(W + .1, H, .04, 0, H / 2, -.15); add(.05, H, .36, -W / 2 - .02, H / 2, 0); add(.05, H, .36, W / 2 + .02, H / 2, 0);
-  for (let t = 0; t <= T; t++) add(W, .04, .36, 0, .15 + t * .42 - .02 + (t ? 0 : 0), 0);
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(W, .36), new THREE.MeshBasicMaterial({ map: labelTex(title, 640, 112, 54, '#e0b85a', '#2b1409') }));
-  sign.position.set(0, H + .22, .02); g.add(sign);
+  add(W + .1, H, .04, 0, H / 2, -.17); add(.05, H, .38, -W / 2 - .02, H / 2, 0); add(.05, H, .38, W / 2 + .02, H / 2, 0);
+  for (let t = 0; t <= T; t++) add(W, .04, .38, 0, .15 + t * TH - .02, 0);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(W, .4), new THREE.MeshBasicMaterial({ map: labelTex(title, 640, 125, 54, '#e0b85a', '#2b1409') }));
+  sign.position.set(0, H + .24, .02); g.add(sign);
   books.forEach((b, i) => {
-    const t = Math.floor(i / per), k = i % per, col = COLORS[hash(b.title) % COLORS.length];
-    const hh = .3 + (hash(b.title) % 9) / 100, side = M(col);
+    const t = Math.floor(i / 6), p = Math.floor((i % 6) / 3), k = i % 3, hs = hash(b.title), col = COLORS[hs % COLORS.length], side = M(col);
     const mats = [side, side, side, side, new THREE.MeshStandardMaterial({ map: spineTex(b.title, col), roughness: .7 }), side];
-    const m = new THREE.Mesh(BOOK_GEO, mats); m.scale.y = hh;
-    m.position.set(-W / 2 + .06 + k * .076, .15 + t * .42 + hh / 2, 0);
+    const m = new THREE.Mesh(BOOK_GEO, mats);
+    m.position.set((p ? .5 : -.5) + ((hs % 5) - 2) * .01, .15 + t * TH + .056 + k * .115, .02); m.rotation.y = ((hs % 7) - 3) * .012;
     m.userData.book = b; g.add(m); bookMeshes.push(m);
   });
   return g;
@@ -67,20 +67,22 @@ function buddha() {
 function build(sections) {
   if (world) { scene.remove(world); world.traverse(o => { if (o.geometry && !SHARED.has(o.geometry)) o.geometry.dispose(); [].concat(o.material || []).forEach(m => { m.map?.dispose(); m.dispose(); }); }); }
   world = new THREE.Group(); bookMeshes = []; scene.add(world);
-  const per = Math.ceil(sections.length / 2); L = per * 2.4 + 10;
+  const cases = []; sections.forEach(sc => { const n = Math.ceil(sc.books.length / 18) || 1;
+    for (let i = 0; i < n; i++) cases.push({ title: n > 1 ? `${sc.title} (${i + 1}/${n})` : sc.title, books: sc.books.slice(i * 18, i * 18 + 18) }); });
+  const per = Math.ceil(cases.length / 2); L = per * 2.4 + 10;
   const plane = (w, d, mat, x, y, z, rx, ry = 0) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat); m.position.set(x, y, z); m.rotation.set(rx, ry, 0); world.add(m); };
-  const wallM = M(0x3b2314, { side: THREE.DoubleSide });
-  plane(12, L + 4, M(0x6b4423), 0, 0, 2 - L / 2, -Math.PI / 2);
+  const wallM = M(0x7a5634, { side: THREE.DoubleSide });
+  plane(12, L + 4, M(0x8a5a30), 0, 0, 2 - L / 2, -Math.PI / 2);
   plane(2.4, L + 4, M(0x7a1f1f), 0, .01, 2 - L / 2, -Math.PI / 2);
-  plane(12, L + 4, M(0x2a1a0e), 0, 6.5, 2 - L / 2, Math.PI / 2);
+  plane(12, L + 4, M(0x5a4028), 0, 6.5, 2 - L / 2, Math.PI / 2);
   plane(L + 4, 6.5, wallM, -6, 3.25, 2 - L / 2, 0, Math.PI / 2); plane(L + 4, 6.5, wallM, 6, 3.25, 2 - L / 2, 0, Math.PI / 2);
-  plane(12, 6.5, M(0x5a1818, { side: THREE.DoubleSide }), 0, 3.25, -L); plane(12, 6.5, wallM, 0, 3.25, 4);
+  plane(12, 6.5, M(0x7a2222, { side: THREE.DoubleSide }), 0, 3.25, -L); plane(12, 6.5, wallM, 0, 3.25, 4);
   for (let z = 2; z > -L; z -= 3) { const b = new THREE.Mesh(new THREE.BoxGeometry(12, .25, .3), M(0x4a2a14)); b.position.set(0, 6.3, z); world.add(b); }
   for (let i = 0, z = 0; z > -L + 3; z -= 5, i++) {
     const l = new THREE.Mesh(new THREE.SphereGeometry(.22, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff8a3d })); l.position.set(0, 4.6, z); world.add(l);
-    if (i % 2 == 0) { const p = new THREE.PointLight(0xffa860, 14, 11); p.position.set(0, 4.4, z); world.add(p); }
+    if (i % 2 == 0) { const p = new THREE.PointLight(0xffa860, 26, 14); p.position.set(0, 4.4, z); world.add(p); }
   }
-  sections.forEach((s, i) => {
+  cases.forEach((s, i) => {
     const left = i % 2 === 0, row = Math.floor(i / 2), c = bookcase(s.title, s.books);
     c.position.set(left ? -5.55 : 5.55, 0, -2.5 - row * 2.4); c.rotation.y = left ? Math.PI / 2 : -Math.PI / 2; world.add(c);
   });
@@ -113,8 +115,8 @@ const key = (e, v) => { const k = { w: 'w', a: 'a', s: 's', d: 'd', ArrowUp: 'up
 function initScene() {
   renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight); renderer.domElement.style.cssText = 'position:fixed;inset:0;touch-action:none;cursor:grab'; document.body.prepend(renderer.domElement);
-  scene = new THREE.Scene(); scene.background = new THREE.Color(0x120a05); scene.fog = new THREE.Fog(0x120a05, 8, 40);
-  scene.add(new THREE.AmbientLight(0xffe2b8, .55), new THREE.HemisphereLight(0xffe0b0, 0x3a2412, .5));
+  scene = new THREE.Scene(); scene.background = new THREE.Color(0x120a05); scene.fog = new THREE.Fog(0x1a0f08, 14, 70);
+  scene.add(new THREE.AmbientLight(0xffe2b8, .95), new THREE.HemisphereLight(0xffe0b0, 0x3a2412, .8));
   camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, .05, 80);
   addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
   addEventListener('keydown', e => key(e, true)); addEventListener('keyup', e => key(e, false));
@@ -127,9 +129,9 @@ function initScene() {
   el.onpointerup = e => { if (drag && drag.moved < 6) { const m = pick(e); if (m) { hover(null); app.open(m.userData.book); } } drag = null; };
 }
 function initHud() {
-  const css = h('style', { textContent: `.hud{position:fixed;z-index:4;color:#f6ecd6;font-family:Georgia,serif}.hud button{background:#6b4423cc;color:#f6ecd6;border:1px solid #e0b85a;border-radius:8px;padding:6px 11px;font:inherit;cursor:pointer}
-  #tip{position:fixed;z-index:6;background:#000c;color:#fff;padding:4px 8px;border-radius:5px;font:13px Georgia;pointer-events:none;display:none;max-width:260px}
-  #ov{position:fixed;inset:0;z-index:7;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#000a;color:#f6ecd6;font:18px Georgia;text-align:center;padding:20px}
+  const css = h('style', { textContent: `.hud{position:fixed;z-index:4;color:#f6ecd6;font-family:"Noto Serif","Times New Roman",serif}.hud button{background:#6b4423cc;color:#f6ecd6;border:1px solid #e0b85a;border-radius:8px;padding:6px 11px;font:inherit;cursor:pointer}
+  #tip{position:fixed;z-index:6;background:#000c;color:#fff;padding:4px 8px;border-radius:5px;font:13px "Noto Serif","Times New Roman";pointer-events:none;display:none;max-width:260px}
+  #ov{position:fixed;inset:0;z-index:7;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#000a;color:#f6ecd6;font:18px "Noto Serif","Times New Roman";text-align:center;padding:20px}
   .mv{position:fixed;bottom:16px;z-index:4;display:none;flex-direction:column;gap:8px}.mv button{width:54px;height:54px;font-size:20px}
   @media(pointer:coarse){.mv{display:flex}}.hud a{color:#e0b85a;cursor:pointer;text-decoration:underline}` });
   document.head.append(css);
@@ -147,7 +149,8 @@ function initHud() {
 const hud = c => { crumbsEl.textContent = ''; (c || []).forEach((t, i, a) => { if (i) crumbsEl.append('›'); crumbsEl.append(i === a.length - 1 ? h('b', { textContent: t }) : h('a', { textContent: i ? t : '🏯 ' + t, onclick: () => app.jump(i) })); });
   if (c?.length > 1) crumbsEl.prepend(h('button', { textContent: '←', onclick: () => app.back() })); };
 const msg = (html, btn) => { ov.replaceChildren(h('div', { innerHTML: html })); if (btn) ov.append(btn); ov.style.display = html ? 'flex' : 'none'; };
-function enter(sections, c) { U2.closeReader(); msg(''); hud(c); build(sections); keys = {}; running = true; }
+const fontReady = document.fonts ? Promise.all(['400', '700'].map(w => document.fonts.load(`${w} 20px "Noto Serif"`, 'Thăng ắế ữ'))).catch(() => {}) : Promise.resolve();
+async function enter(sections, c) { U2.closeReader(); msg('Đang dựng thư viện…'); hud(c); await fontReady; msg(''); build(sections); keys = {}; running = true; }
 
 export const UI = {
   init(a) { app = a; U2.init(a); document.getElementById('app').style.display = 'none'; initScene(); initHud(); requestAnimationFrame(loop); },
