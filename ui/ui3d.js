@@ -1,6 +1,7 @@
 /* GIAO DIỆN 3D (Three.js). Cùng hợp đồng với ui2d.js. Màn hình đọc dùng lại của ui2d (lớp phủ DOM). */
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import { UI as U2 } from './ui2d.js';
+import { Dharma } from './dharma.js';
 
 const COLORS = ['#8b2e2e', '#2e5a8b', '#2e7a4f', '#7a4f2e', '#6a2e8b', '#8b6a2e', '#2e7a7a', '#5a2e3d', '#3d5a2e', '#4a4a7a'];
 const FONT = '"Noto Serif","Times New Roman",serif';
@@ -92,8 +93,9 @@ function build(sections) {
 
 /* ---------- vòng lặp & điều khiển ---------- */
 function loop(t) {
-  requestAnimationFrame(loop); if (!running) return;
-  const dt = Math.min(.05, (t - last) / 1000); last = t;
+  requestAnimationFrame(loop); const dt = Math.min(.05, (t - last) / 1000); last = t;
+  if (Dharma.active) { Dharma.update(dt, keys, yaw, pitch); renderer.render(Dharma.scene, Dharma.camera); return; }
+  if (!running) return;
   const f = (keys.w || keys.up ? 1 : 0) - (keys.s || keys.down ? 1 : 0), r = (keys.d ? 1 : 0) - (keys.a ? 1 : 0), sp = 3.2 * dt;
   camera.position.x += (-Math.sin(yaw) * f + Math.cos(yaw) * r) * sp; camera.position.z += (-Math.cos(yaw) * f - Math.sin(yaw) * r) * sp;
   camera.position.x = Math.max(-4.6, Math.min(4.6, camera.position.x)); camera.position.z = Math.max(-L + 4.5, Math.min(3.2, camera.position.z));
@@ -110,7 +112,7 @@ function hover(m, e) {
   tip.style.display = m ? 'block' : 'none'; renderer.domElement.style.cursor = m ? 'pointer' : 'grab';
   if (m) { tip.textContent = m.userData.book.title; tip.style.left = e.clientX + 14 + 'px'; tip.style.top = e.clientY + 14 + 'px'; }
 }
-const key = (e, v) => { const k = { w: 'w', a: 'a', s: 's', d: 'd', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'a', ArrowRight: 'd' }[e.key.length > 1 ? e.key : e.key.toLowerCase()]; if (k && running) keys[k] = v; };
+const key = (e, v) => { if (v && e.key.toLowerCase() === 'e' && Dharma.active) return Dharma.toggleSit(); const k = { w: 'w', a: 'a', s: 's', d: 'd', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'a', ArrowRight: 'd' }[e.key.length > 1 ? e.key : e.key.toLowerCase()]; if (k && running) keys[k] = v; };
 
 function initScene() {
   renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -124,17 +126,12 @@ function initScene() {
   el.onpointerdown = e => { drag = { x: e.clientX, y: e.clientY, moved: 0 }; el.setPointerCapture(e.pointerId); };
   el.onpointermove = e => {
     if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved += Math.abs(dx) + Math.abs(dy); drag.x = e.clientX; drag.y = e.clientY; yaw -= dx * .004; pitch = Math.max(-1.2, Math.min(1.2, pitch - dy * .004)); }
-    else if (e.pointerType === 'mouse') hover(pick(e), e);
+    else if (e.pointerType === 'mouse' && !Dharma.active) hover(pick(e), e);
   };
-  el.onpointerup = e => { if (drag && drag.moved < 6) { const m = pick(e); if (m) { hover(null); app.open(m.userData.book); } } drag = null; };
+  el.onpointerup = e => { if (drag && drag.moved < 6 && !Dharma.active) { const m = pick(e); if (m) { hover(null); app.open(m.userData.book); } } drag = null; };
 }
 function initHud() {
-  const css = h('style', { textContent: `.hud{position:fixed;z-index:4;color:#f6ecd6;font-family:"Noto Serif","Times New Roman",serif}.hud button{background:#6b4423cc;color:#f6ecd6;border:1px solid #e0b85a;border-radius:8px;padding:6px 11px;font:inherit;cursor:pointer}
-  #tip{position:fixed;z-index:6;background:#000c;color:#fff;padding:4px 8px;border-radius:5px;font:13px "Noto Serif","Times New Roman";pointer-events:none;display:none;max-width:260px}
-  #ov{position:fixed;inset:0;z-index:7;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#000a;color:#f6ecd6;font:18px "Noto Serif","Times New Roman";text-align:center;padding:20px}
-  .mv{position:fixed;bottom:16px;z-index:4;display:none;flex-direction:column;gap:8px}.mv button{width:54px;height:54px;font-size:20px}
-  @media(pointer:coarse){.mv{display:flex}}.hud a{color:#e0b85a;cursor:pointer;text-decoration:underline}` });
-  document.head.append(css);
+  const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = new URL('./ui3d.css', import.meta.url).href; document.head.append(css);
   tip = h('div', { id: 'tip' }); ov = h('div', { id: 'ov' });
   crumbsEl = h('div', { className: 'hud', style: 'left:14px;top:12px;font-size:15px;text-shadow:0 1px 4px #000;display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:60vw' });
   musBtn = h('button', { textContent: '♪', onclick: () => { if (!app.music.toggle()) alert('Chưa có nhạc. Bỏ mp3 vào thư mục music/ và khai báo trong music/list.json'); } });
@@ -143,23 +140,32 @@ function initHud() {
     h('input', { type: 'range', min: 0, max: 1, step: .05, value: .4, style: 'width:70px', oninput: e => app.music.setVolume(+e.target.value) }));
   const hold = (txt, k, side) => { const b = h('button', { textContent: txt }); b.ontouchstart = b.onpointerdown = e => { e.stopPropagation(); keys[k] = true; }; b.onpointerup = b.onpointerleave = b.ontouchend = () => keys[k] = false; return b; };
   const mv = h('div', { className: 'mv', style: 'left:14px' }, hold('▲', 'up'), hold('▼', 'down'));
-  const help = h('div', { className: 'hud', style: 'left:50%;bottom:10px;transform:translateX(-50%);font-size:12px;opacity:.75;text-align:center;pointer-events:none', textContent: 'Kéo để nhìn · W A S D / mũi tên để đi · bấm vào cuốn kinh để đọc' });
+  const help = h('div', { className: 'hud help', style: 'left:50%;bottom:10px;transform:translateX(-50%);font-size:12px;opacity:.75;text-align:center;pointer-events:none', textContent: 'Kéo để nhìn · W A S D / mũi tên để đi · bấm vào cuốn kinh để đọc' });
   document.body.append(tip, ov, crumbsEl, mus, mv, help);
 }
 const hud = c => { crumbsEl.textContent = ''; (c || []).forEach((t, i, a) => { if (i) crumbsEl.append('›'); crumbsEl.append(i === a.length - 1 ? h('b', { textContent: t }) : h('a', { textContent: i ? t : '🏯 ' + t, onclick: () => app.jump(i) })); });
   if (c?.length > 1) crumbsEl.prepend(h('button', { textContent: '←', onclick: () => app.back() })); };
 const msg = (html, btn) => { ov.replaceChildren(h('div', { innerHTML: html })); if (btn) ov.append(btn); ov.style.display = html ? 'flex' : 'none'; };
 const fontReady = document.fonts ? Promise.all(['400', '700'].map(w => document.fonts.load(`${w} 20px "Noto Serif"`, 'Thăng ắế ữ'))).catch(() => {}) : Promise.resolve();
-async function enter(sections, c) { U2.closeReader(); msg('Đang dựng thư viện…'); hud(c); await fontReady; msg(''); build(sections); keys = {}; running = true; }
+async function enter(sections, c) { Dharma.exit(); U2.closeReader(); msg('Đang dựng thư viện…'); hud(c); await fontReady; msg(''); build(sections); keys = {}; running = true; }
 
+function openDharma(d, c, i) {
+  running = false; U2.closeReader(); msg(''); hud(c); yaw = 0; pitch = .05; keys = {};
+  Dharma.enter(d, { app, start: i, onClassic: () => openClassic(d, c, Dharma.index) });
+}
+function openClassic(d, c, i) {
+  Dharma.exit(); U2.showReader(d, c, i);
+  const bar = document.querySelector('.rd .rb');
+  if (bar) bar.insertBefore(h('button', { textContent: '🧘 Nghe pháp', onclick: () => openDharma(d, c, i) }), bar.children[1]);
+}
 export const UI = {
   init(a) { app = a; U2.init(a); document.getElementById('app').style.display = 'none'; initScene(); initHud(); requestAnimationFrame(loop); },
-  loading(m) { running = false; U2.closeReader(); msg(m); },
-  error(m, canBack) { running = false; msg('Lỗi: ' + m, h('button', { className: 'hud', style: 'position:static;background:#6b4423;color:#fff;border:1px solid #e0b85a;border-radius:8px;padding:8px 14px;font:inherit', textContent: canBack ? '← Quay lại' : 'Thử lại', onclick: () => canBack ? app.back() : app.home() })); },
+  loading(m) { running = false; Dharma.exit(); U2.closeReader(); msg(m); },
+  error(m, canBack) { running = false; Dharma.exit(); msg('Lỗi: ' + m, h('button', { className: 'hud', style: 'position:static;background:#6b4423;color:#fff;border:1px solid #e0b85a;border-radius:8px;padding:8px 14px;font:inherit', textContent: canBack ? '← Quay lại' : 'Thử lại', onclick: () => canBack ? app.back() : app.home() })); },
   showHome(s, c) { enter(s, c); },
   showShelf(d, c) { enter([{ title: d.title, books: d.books }], c); },
-  showReader(d, c, i) { running = false; msg(''); hud(c); U2.showReader(d, c, i); },
-  setReading: i => U2.setReading(i),
-  setTtsState: s => U2.setTtsState(s),
+  showReader(d, c, i) { openDharma(d, c, i); },
+  setReading: i => { U2.setReading(i); Dharma.setReading(i); },
+  setTtsState: s => { U2.setTtsState(s); Dharma.setState(s); },
   setMusic(n, on) { if (musName) { musName.textContent = n; musBtn.textContent = on ? '⏸' : '♪'; } U2.setMusic(n, on); }
 };

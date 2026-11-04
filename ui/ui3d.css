@@ -1,0 +1,9 @@
+/* CSS riêng cho giao diện 3D (ui/ui3d.js) */
+.hud{position:fixed;z-index:4;color:#f6ecd6;font-family:"Noto Serif","Times New Roman",serif}
+.hud button{background:#6b4423cc;color:#f6ecd6;border:1px solid #e0b85a;border-radius:8px;padding:6px 11px;font:inherit;cursor:pointer}
+#tip{position:fixed;z-index:6;background:#000c;color:#fff;padding:4px 8px;border-radius:5px;font:13px "Noto Serif","Times New Roman";pointer-events:none;display:none;max-width:260px}
+#ov{position:fixed;inset:0;z-index:7;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#000a;color:#f6ecd6;font:18px "Noto Serif","Times New Roman";text-align:center;padding:20px}
+.mv{position:fixed;bottom:16px;z-index:4;display:none;flex-direction:column;gap:8px}
+.mv button{width:54px;height:54px;font-size:20px}
+@media(pointer:coarse){.mv{display:flex}}
+.hud a{color:#e0b85a;cursor:pointer;text-decoration:underline}
